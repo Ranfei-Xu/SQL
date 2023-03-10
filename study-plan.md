@@ -23,7 +23,9 @@ SELECT DISTINCT stock_name,
 FROM Stocks
 ```
 
-- who order most
+586. Customer Placing the Largest Number of Orders
+- Write an SQL query to find the customer_number for the customer who has placed the largest number of orders.
+- The test cases are generated so that exactly one customer will have placed more orders than any other customer.
 ```sql
 # using window function (SLOWER)
 SELECT customer_number FROM 
@@ -88,6 +90,23 @@ ORDER BY travelled_distance DESC, u.name ASC
 
 ```
 
+```
+1393. Capital Gain/Loss
+- Write an SQL query to report the Capital gain/loss for each stock.
+The Capital gain/loss of a stock is the total gain or loss after buying and selling the stock one or many times.
+
+```sql
+# using Aggretation:
+SELECT stock_name, 
+	   SUM(CASE WHEN operation = 'Sell' THEN price
+		   ELSE -price END) AS capital_gain_loss
+FROM Stocks
+GROUP BY stock_name
+# Window Function (SUM OVER):
+SELECT DISTINCT stock_name, 
+       SUM(CASE WHEN operation = 'Sell' THEN price ELSE -price END)
+       OVER(PARTITION BY stock_name) AS capital_gain_loss
+FROM Stocks
 ```
 627. Swap Salary
 - Write an SQL query to swap all 'f' and 'm' values (i.e., change all 'f' values to 'm' and vice versa) with a single update statement and no intermediate temporary tables. Note that you must write a single update statement, do not write any select statement for this problem.
@@ -155,14 +174,15 @@ GROUP BY activity_date;
 197. Rising Temperature
 - Write an SQL query to find all dates' Id with higher temperatures compared to its previous dates (yesterday).
 ```sql
-SELECT wt1.Id 
+SELECT wt1.id 
 FROM Weather wt1, Weather wt2
 WHERE wt1.Temperature > wt2.Temperature AND 
-      TO_DAYS(wt1.DATE)-TO_DAYS(wt2.DATE)=1;
+      TO_DAYS(wt1.recordDate )-TO_DAYS(wt2.recordDate )=1;
 # way2:
-SELECT w1.id
-FROM Weather AS w1 , Weather AS w2
-WHERE w1.Temperature > w2.Temperature AND DATEDIFF(w1.recordDate , w2.recordDate)
+SELECT w2.id 
+FROM Weather w1,Weather w2
+WHERE datediff(w2.recordDate, w1.recordDate) = 1 
+AND w2.temperature > w1.temperature;
 ```
 
 # Concat
@@ -194,13 +214,20 @@ FROM Users ORDER BY user_id;
 
 # IF
 - 
+```sql
 
 ```
+
+- 
+```sql
 
 ```
 - 
+```sql
 
 ```
+- 
+```sql
 
 ```
 608. Tree Node
@@ -227,8 +254,12 @@ ORDER BY employee_id;
 ```
 
 # Join
-- 
-- 
+- sql
+```
+
+```
+
+
 
 ```sql
 
@@ -242,15 +273,13 @@ ORDER BY employee_id;
 - Write an SQL query to find for each user, the join date and the number of orders they made as a buyer in 2019.
 Return the result table in any order.
 ```sql
-SELECT u.user_id AS buyer_id, join_date, 
-IFNULL(COUNT(order_date), 0) AS orders_in_2019 
-FROM Users as u
-LEFT JOIN
-Orders as o
-ON u.user_id = o.buyer_id
-AND YEAR(order_date) = '2019'
-GROUP BY u.user_id
-# ATTENTION TO THE NULL
+SELECT u.user_id AS buyer_id, u.join_date,
+    IFNULL(COUNT(order_id),0) AS orders_in_2019 FROM users u
+LEFT JOIN orders o
+ON u.user_id = o.buyer_id AND YEAR(order_date) = '2019'
+GROUP BY user_id;
+# can't use WHERE CLAUSE because we need return null for people who don't order
+
 ```
 607. Sales Person
 - Write an SQL query to report the names of all the salespersons who did not have any orders related to the company with the name "RED".
@@ -261,13 +290,12 @@ RIGHT JOIN Orders o ON o.sales_id = s.sales_id
 Left JOIN Company c ON c.com_id = o.com_id
 WHERE c.name NOT IN ('RED');
 # fix the problem: not have any orders relate to 'red'
-SELECT name FROM salesperson
-where sales_id not in
-(SELECT sales_id FROM orders
-LEFT JOIN
-company 
-ON orders.com_i d= company.com_id 
-WHERE company.name = 'RED')
+SELECT s.name
+FROM salesperson s
+WHERE sales_id NOT IN (
+    SELECT sales_id FROM orders o 
+    LEFT JOIN company c ON o.com_id = c.com_id
+    WHERE c.name = 'RED');
 ```
 1581. Customer Who Visited but Did Not Make Any Transactions
 - Write a SQL query to find the IDs of the users who visited without making any transactions and the number of times they made these types of visits.
@@ -304,10 +332,26 @@ ORDER BY employee_id;
 # Dataframe
 
 - 
+```sql
 
 ```
 
+- 
+```sql
+
 ```
+
+- 
+```sql
+
+```
+
+-
+```sqlfds
+
+```
+
+
 196. Delete Duplicate Emails
 - Write an SQL query to swap all 'f' and 'm' values (i.e., change all 'f' values to 'm' and vice versa) with a single update statement and no intermediate temporary tables.
 ```sql
@@ -316,23 +360,65 @@ FROM Person p1, Person p2
 WHERE p1.email = p2.email AND p1.id > p2.id 
 # attention, don't use <>
 ```
+
+
+
 # Basic
-- 
-
+- sql
 ```
 
 ```
-- 
-
+- sql
 ```
 
 ```
-- 
+- sql
+```
 
+```
+- sql
+```
+
+```
+- sql
 ```
 
 ```
 
+- sql
+```
+
+```
+
+- sql
+```
+
+```
+
+- sql
+```
+
+```
+
+
+182. Duplicate Emails
+- Write an SQL query to report all the duplicate emails. Note that it's guaranteed that the email field is not NULL. Return the result table in any order.
+```sql
+SELECT email AS Email FROM Person
+GROUP BY email
+HAVING count(email) > 1;
+# using having count() after groupby
+# using sum() before groupby
+```
+1050. Actors and Directors Who Cooperated At Least Three Times
+- Write a SQL query for a report that provides the pairs (actor_id, director_id) where the actor has cooperated with the director at least three times.
+Return the result table in any order.
+```sql
+SELECT actor_id, director_id 
+FROM actordirector
+GROUP BY actor_id, director_id 
+HAVING COUNT(timestamp)>2;
+```
 1527. Patients With a Condition
 - Write an SQL query to report the patient_id, patient_name and conditions of the patients who have Type I Diabetes. Type I Diabetes always starts with DIAB1 prefix. Return the result table in any order.
 ```sql
@@ -347,7 +433,6 @@ SELECT name AS Customers FROM Customers
 WHERE id NOT IN (SELECT customerId FROM Orders)
 ```
 584. Find Customer Referee
-
 - Write an SQL query to report the names of the customer that are not referred by the customer with id = 2.
 ```sql
 SELECT name FROM Customer
