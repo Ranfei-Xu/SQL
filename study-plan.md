@@ -87,9 +87,15 @@ ORDER BY travelled_distance DESC, u.name ASC
 
 ```
 - 
-
-```
-
+1445. Apples & Oranges
+- Write an SQL query to report the difference between the number of apples and oranges sold each day. Return the result table ordered by sale_date.
+```sql
+SELECT sale_date, 
+   SUM(CASE WHEN fruit = 'apples' THEN sold_num
+		   ELSE - sold_num END) AS diff
+FROM sales
+GROUP BY sale_date
+ORDER BY sale_date
 ```
 1393. Capital Gain/Loss
 - Write an SQL query to report the Capital gain/loss for each stock.
@@ -108,6 +114,35 @@ SELECT DISTINCT stock_name,
        OVER(PARTITION BY stock_name) AS capital_gain_loss
 FROM Stocks
 ```
+
+1699. Number of Calls Between Two Persons
+- Write an SQL query to report the number of calls and the total call duration between each pair of distinct persons (person1, person2) where person1 < person2.
+Return the result table in any order.
+```sql
+# using FUNCTION LEAST/GREATEST
+SELECT LEAST(from_id,to_id) AS person1,
+GREATEST(from_id,to_id) as person2,
+COUNT(*) AS call_count,
+SUM(duration) AS total_duration
+FROM calls
+GROUP BY person1,person2;
+
+# using CASE
+SELECT 
+    CASE
+        WHEN from_id > to_id THEN to_id
+        ELSE from_id
+    END AS person1,
+    CASE
+        WHEN from_id > to_id THEN from_id
+        ELSE to_id
+    END AS person2,
+    COUNT(duration) AS call_count,
+    SUM(duration) AS total_duration       
+FROM Calls
+GROUP BY person2,person1
+```
+
 627. Swap Salary
 - Write an SQL query to swap all 'f' and 'm' values (i.e., change all 'f' values to 'm' and vice versa) with a single update statement and no intermediate temporary tables. Note that you must write a single update statement, do not write any select statement for this problem.
 ```sql
@@ -117,6 +152,20 @@ UPDATE Salary
         ELSE 'm' 
         END)
 ```
+
+- extension: exchange column a and b when a>b
+```sql
+UPDATE table_name
+SET
+    A = CASE
+        WHEN A > B THEN B
+        ELSE A
+    END,
+    B = CASE
+        WHEN A > B THEN A
+        ELSE B
+    END;
+  ```
 
 
 # DATE AND TIME
@@ -364,42 +413,52 @@ WHERE p1.email = p2.email AND p1.id > p2.id
 
 
 # Basic
-- sql
-```
+- 
+```sql
 
 ```
-- sql
-```
+- 
+```sql
 
 ```
-- sql
-```
+- 
+```sql
 
 ```
-- sql
-```
+- 
+```sql
 
 ```
-- sql
-```
-
-```
-
-- sql
-```
+- 
+```sql
 
 ```
 
-- sql
-```
+- 
+```sql
 
 ```
-
-- sql
+1571. Warehouse Manager
+- Write an SQL query to report the number of cubic feet of volume the inventory occupies in each warehouse.
+```sql
+# calculation
+SELECT w.name AS warehouse_name,
+SUM(units*width*length*height) AS volume
+FROM warehouse w
+LEFT JOIN products p ON w.product_id = p.product_id
+GROUP BY w.name
 ```
-
+1251. Average Selling Price
+- Write an SQL query to find the average selling price for each product. average_price should be rounded to 2 decimal places.
+```sql
+# calculation
+SELECT p.product_id,
+ROUND(SUM(price*units)/SUM(units),2) AS average_price 
+FROM prices p
+RIGHT JOIN unitssold u ON p.product_id = u.product_id
+WHERE purchase_date BETWEEN start_date AND end_date
+GROUP BY product_id
 ```
-
 
 182. Duplicate Emails
 - Write an SQL query to report all the duplicate emails. Note that it's guaranteed that the email field is not NULL. Return the result table in any order.
@@ -407,8 +466,7 @@ WHERE p1.email = p2.email AND p1.id > p2.id
 SELECT email AS Email FROM Person
 GROUP BY email
 HAVING count(email) > 1;
-# using having count() after groupby
-# using sum() before groupby
+# using having count() after groupby = where
 ```
 1050. Actors and Directors Who Cooperated At Least Three Times
 - Write a SQL query for a report that provides the pairs (actor_id, director_id) where the actor has cooperated with the director at least three times.
