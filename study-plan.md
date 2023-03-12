@@ -1,10 +1,32 @@
-SQL Study Plan in leetcode
+SQL Study Plan in leetcodeRanfei-Xu
 
 Link: https://leetcode.com/study-plan/sql/?
 
 
 # Window Function and Aggregation
 
+Different between groupby and partition by
+```sql
+# groupby
+SELECT product, SUM(sales_amount)
+FROM sales_data
+GROUP BY product;
+# partition by
+SELECT product, region, SUM(sales_amount) OVER (PARTITION BY product)
+FROM sales_data;
+```
+1303. Find the Team Size
+- Write an SQL query to find the team size of each of the employees.
+```sql
+# window function
+SELECT employee_id, COUNT(*) OVER(PARTITION BY team_id) AS team_size
+FROM employee
+# join
+SELECT employee_id, team_size FROM employee e
+JOIN
+(SELECT team_id, COUNT(*) AS team_size FROM employee GROUP BY team_id) t 
+ON e.team_id=t.team_id
+```
 1393. Capital Gain/Loss
 - Write an SQL query to report the Capital gain/loss for each stock.
 The Capital gain/loss of a stock is the total gain or loss after buying and selling the stock one or many times.
@@ -22,6 +44,49 @@ SELECT DISTINCT stock_name,
        OVER(PARTITION BY stock_name) AS capital_gain_loss
 FROM Stocks
 ```
+1112. Highest Grade For Each Student
+-
+```sql
+# window function
+SELECT t.student_id, t.course_id, t.grade
+FROM 
+	(SELECT student_id, course_id, grade, 
+	row_number() OVER (PARTITION BY student_id ORDER BY grade DESC, course_id asc) AS r
+	FROM Enrollments) t
+WHERE t.r=1
+ORDER BY t.student_id ASC
+# use max(grade), sub-query
+SELECT student_id, min(course_id) AS course_id, grade
+FROM enrollments
+WHERE (student_id, grade) IN 
+(SELECT student_id,
+MAX(grade) as grade
+FROM enrollments
+GROUP BY student_id)
+GROUP BY student_id # necessary
+ORDER BY student_id
+```
+
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
 
 586. Customer Placing the Largest Number of Orders
 - Write an SQL query to find the customer_number for the customer who has placed the largest number of orders.
@@ -41,7 +106,21 @@ select customer_number from orders
 group by customer_number
 order by count(*) desc limit 1;
 ```
-
+619. Biggest Single Number
+- A single number is a number that appeared only once in the MyNumbers table. Write an SQL query to report the largest single number. If there is no single number, report null.
+```sql
+# using if, limit
+select if(count(*) =1, num, null) as num from number 
+group by num order by count(*), num desc limit 1
+# using sub-query, max
+SELECT MAX(group1.num) AS num 
+FROM (
+    SELECT num, COUNT(num) AS num_count
+    FROM my_numbers
+    GROUP BY num
+) group1
+WHERE num_count = 1
+```
 176. Second Highest Salary
 - Write an SQL query to report the second highest salary from the Employee table. If there is no second highest salary, the query should report null.
 ```sql
@@ -76,15 +155,62 @@ ORDER BY travelled_distance DESC, u.name ASC
 ```
 
 ```
-- 
+1264. Page Recommendations
+- Write an SQL query to recommend pages to the user with user_id = 1 using the pages that your friends liked. It should not recommend pages you already liked. Return result table in any order without duplicates.
+```sql
+# case
+SELECT DISTINCT(page_id) AS recommended_page 
+FROM likes
+WHERE user_id IN
+ (SELECT CASE 
+    WHEN user1_id = 1 THEN user2_id # NO COMMA
+    WHEN user2_id = 1 THEN user1_id
+    END AS friends
+FROM Friendship)
+AND page_id NOT IN (SELECT page_id FROM likes WHERE user_id = 1)
 
+# subquery
+SELECT DISTINCT(page_id) AS recommended_page FROM likes
+WHERE user_id IN (SELECT user2_id  FROM Friendship WHERE user1_id = 1)
+OR user_id IN (SELECT user1_id FROM Friendship WHERE user2_id = 1)
+AND page_id NOT IN (SELECT page_id FROM likes WHERE user_id = 1)
 ```
 
+**1440. Evaluate Boolean Expression
+- Write an SQL query to evaluate the boolean expressions in Expressions table.
 ```
-- 
-
+SELECT e.left_operand, e.operator, e.right_operand,
+    (
+        CASE
+            WHEN e.operator = '<' AND v1.value < v2.value THEN 'true'
+            WHEN e.operator = '=' AND v1.value = v2.value THEN 'true'
+            WHEN e.operator = '>' AND v1.value > v2.value THEN 'true'
+            ELSE 'false'
+        END
+    ) AS value
+FROM Expressions e
+JOIN Variables v1
+ON e.left_operand = v1.name
+JOIN Variables v2
+ON e.right_operand = v2.name
 ```
+1193. Monthly Transactions
+- Write an SQL query to find for each month and country, the number of transactions and their total amount, the number of approved transactions and their total amount.
+```sql
+SELECT 
+LEFT(trans_date, 7) AS month, country, 
+COUNT(id) AS trans_count, 
+SUM(state = 'approved') AS approved_count, 
+SUM(amount) AS trans_total_amount, 
+SUM(CASE 
+    WHEN state = 'approved' THEN amount 
+    ELSE 0 
+    END) AS approved_total_amount
+FROM Transactions
+GROUP BY month, country
 
+# or: approved_count,DATE_FORMAT(trans_date,"%Y-%m") as month
+# or: sum(case when state = 'approved' then 1 else 0 end) 
 ```
 - 
 1445. Apples & Oranges
@@ -313,11 +439,7 @@ ORDER BY employee_id;
 ```sql
 
 ```
-- 
 
-```sql
-
-```
 1158. Market Analysis
 - Write an SQL query to find for each user, the join date and the number of orders they made as a buyer in 2019.
 Return the result table in any order.
@@ -417,26 +539,51 @@ WHERE p1.email = p2.email AND p1.id > p2.id
 ```sql
 
 ```
-- 
-```sql
 
+1398. Customers Who Bought Products A and B but Not C
+- Write an SQL query to report the customer_id and customer_name of customers who bought products "A", "B" but did not buy the product "C" since we want to recommend them to purchase this product.
+```sql
+SELECT c.customer_id, c.customer_name
+FROM customers c
+WHERE customer_id IN (SELECT customer_id FROM orders WHERE product_name = 'A')
+AND customer_id IN (SELECT customer_id FROM orders WHERE product_name = 'B')
+AND customer_id NOT IN (SELECT customer_id FROM orders WHERE product_name = 'C')
 ```
-- 
+1211. Queries Quality and Percentage
+- Write an SQL query to find each query_name, the quality and poor_query_percentage.Both quality and poor_query_percentage should be rounded to 2 decimal places.
 ```sql
-
+# caculation
+SELECT query_name,
+ROUND(SUM(rating/position) / COUNT(DISTINCT result),2) AS quality,
+ROUND(SUM(rating < 3)*100 / COUNT(DISTINCT result),2) AS poor_query_percentage
+FROM queries
+GROUP BY query_name
+ORDER BY query_name DESC
 ```
-- 
+1173. Immediate Food Delivery I
+- If the customer's preferred delivery date is the same as the order date, then the order is called immediate; otherwise, it is called scheduled.
+Write an SQL query to find the percentage of immediate orders in the table, rounded to 2 decimal places.
 ```sql
-
+SELECT 
+ROUND(
+    (SELECT COUNT(*) FROM delivery WHERE order_date = customer_pref_delivery_date) 
+    / 
+    (SELECT COUNT(*) FROM delivery)
+    *100,2) 
+    AS immediate_percentage
+# DON'T ADD 'FROM delivery' AT END
+# SIMPLER WAY
+select round(100 * sum(order_date = customer_pref_delivery_date) / count(*), 2) as immediate_percentage from Delivery;
 ```
-- 
+1633. Percentage of Users Attended a Contest
+- Write an SQL query to find the percentage of the users registered in each contest rounded to two decimals. Return the result table ordered by percentage in descending order. In case of a tie, order it by contest_id in ascending order.
 ```sql
-
-```
-
-- 
-```sql
-
+# calculation
+SELECT contest_id,
+ROUND(COUNT(user_id)/(SELECT COUNT(*) FROM Users)*100,2) AS percentage 
+FROM register
+GROUP BY contest_id
+ORDER BY percentage DESC, contest_id;
 ```
 1571. Warehouse Manager
 - Write an SQL query to report the number of cubic feet of volume the inventory occupies in each warehouse.
@@ -477,6 +624,16 @@ FROM actordirector
 GROUP BY actor_id, director_id 
 HAVING COUNT(timestamp)>2;
 ```
+570. Managers with at Least 5 Direct Reports
+- Write an SQL query to report the managers with at least five direct reports.
+```sql
+SELECT name FROM employee
+WHERE id IN 
+(SELECT managerid FROM employee 
+GROUP BY managerId
+HAVING COUNT(*) >= 5)
+```
+
 1527. Patients With a Condition
 - Write an SQL query to report the patient_id, patient_name and conditions of the patients who have Type I Diabetes. Type I Diabetes always starts with DIAB1 prefix. Return the result table in any order.
 ```sql
@@ -484,6 +641,19 @@ SELECT patient_id, patient_name, conditions
 FROM Patients
 WHERE conditions LIKE '% DIAB1%' OR conditions LIKE 'DIAB1%'; 
 # ATTENTION TO SPACE
+```
+
+
+1607. Sellers With No Sales
+- Write an SQL query to report the names of all sellers who did not make any sales in 2020.
+```sql
+SELECT seller_name 
+FROM seller 
+WHERE seller_id NOT IN (
+    SELECT seller_id FROM orders 
+    WHERE year(sale_date) = 2020
+)
+ORDER BY seller_name ASC
 ```
 183. Customers Who Never Order
 ```sql
