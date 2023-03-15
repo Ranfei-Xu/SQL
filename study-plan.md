@@ -3,8 +3,40 @@ SQL Study Plan in leetcodeRanfei-Xu
 Link: https://leetcode.com/study-plan/sql/?
 
 
-# Window Function and Aggregation
+# Window Function 
+## Lead and Lag
+1747. Leetflex Banned Accounts
+Write an SQL query to find the account_id of the accounts that should be banned from Leetflex. An account should be banned if it was logged in at some moment from two different IP addresses.
+```sql
+SELECT
+    DISTINCT
+    account_id
+FROM
+    (SELECT
+        account_id,
+        ip_address,
+        LEAD(ip_address,1) OVER (PARTITION BY account_id ORDER BY login ASC) AS next_ip,
+        logout,
+        LEAD(login,1) OVER (PARTITION BY account_id ORDER BY login ASC) AS next_in
+    FROM LogInfo) A
+WHERE logout>= next_in AND ip_address!=next_ip
+```
 
+603. Consecutive Available Seats
+```sql
+SELECT
+    seat_id
+FROM
+    (SELECT
+        seat_id,
+        free,
+        LAG(free,1) OVER (ORDER BY seat_id) as free_lag,
+        LEAD(free,1) OVER (ORDER BY seat_id) as free_lead
+    FROM cinema ) as t
+WHERE (free=1 AND free_lag=1)
+OR (free=1 AND free_lead=1)
+```
+## aggregation
 Different between groupby and partition by
 ```sql
 # groupby
@@ -520,9 +552,74 @@ ORDER BY employee_id;
 ```
 
 # Join
-- sql
+
+-
+```sql
+
 ```
 
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+181. Employees Earning More Than Their Managers
+```sql
+SELECT Employee FROM
+(SELECT e1.name AS Employee
+, e1.salary AS emp_salary
+, e2.salary AS mgr_salary
+FROM employee e1
+LEFT JOIN employee e2 ON e1.managerid=e2.id
+) t
+WHERE emp_salary > mgr_salary
+```
+1731. The Number of Employees Which Report to Each Employee
+- For this problem, we will consider a manager an employee who has at least 1 other employee reporting to them. Write an SQL query to report the ids and the names of all managers, the number of employees who report directly to them, and the average age of the reports rounded to the nearest integer.
+Return the result table ordered by employee_id.
+```sql
+SELECT e1.reports_to AS employee_id
+, e2.name AS name
+, count(*) AS reports_count
+, ROUND(AVG(e1.age),0) AS average_age
+FROM employees e1
+LEFT JOIN employees e2 ON e1.reports_to = e2.employee_id
+GROUP BY e2.employee_id # can't use name, coz same name mgr
+HAVING employee_id IS NOT NULL # don't forget
+ORDER BY employee_id
+```
+
+
+1164. Product Price at a Given Date
+- Write an SQL query to find the prices of all products on 2019-08-16. Assume the price of all products before any change is 10.
+```sql
+# using where () in (table)
+SELECT product_id, 10 AS price
+FROM products
+GROUP BY product_id
+HAVING MIN(change_date) > '2019-08-16'
+UNION
+SELECT product_id, new_price as price
+FROM products
+WHERE (product_id,change_date) IN 
+(SELECT product_id,MAX(change_date) 
+FROM products 
+WHERE change_date <= '2019-08-16'
+GROUP BY product_id)
 ```
 
 
