@@ -81,10 +81,19 @@ ORDER BY student_id
 ```sql
 
 ```
-
--
+184. Department Highest Salary
+- Write an SQL query to find employees who have the highest salary in each of the departments.
 ```sql
-
+SELECT Department, Employee, Salary
+FROM
+(SELECT e.departmentId 
+, d.name AS Department
+, e.name AS Employee 
+, salary AS Salary
+, RANK()OVER(PARTITION BY departmentId ORDER BY salary DESC) AS rnk
+FROM employee e 
+JOIN department d ON d.id=e.departmentId) t
+WHERE rnk=1
 ```
 
 
@@ -145,15 +154,97 @@ ORDER BY travelled_distance DESC, u.name ASC
 ```
 
 # Case
-- 
+
+-
+```sql
 
 ```
 
-```
-- 
+-
+```sql
 
 ```
 
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
+-
+```sql
+
+```
+
+
+1783. Grand Slam Titles
+- Write an SQL query to report the number of grand slam tournaments won by each player. Do not include the players who did not win any tournament.
+```sql
+SELECT * 
+FROM (
+  SELECT 
+   player_id,
+   player_name,
+   SUM( CASE WHEN player_id = Wimbledon THEN 1 ELSE 0 END +
+        CASE WHEN player_id = Fr_open THEN 1 ELSE 0 END +
+        CASE WHEN player_id = US_open THEN 1 ELSE 0 END +
+        CASE WHEN player_id = Au_open THEN 1 ELSE 0 END ) AS grand_slams_count
+  FROM Players CROSS JOIN Championships 
+  GROUP BY player_id, player_name ) t
+WHERE grand_slams_count > 0
+```
+626. Exchange Seats
+- Write an SQL query to swap the seat id of every two consecutive students. If the number of students is odd, the id of the last student is not swapped.
+Return the result table ordered by id in ascending order.
+```sql
+SELECT  
+      CASE 
+        WHEN id % 2 = 0 THEN id - 1
+        WHEN id % 2 = 1 AND id < (select count(*) from seat) THEN id + 1
+	# why I can't use max(id) with groupby id
+        ELSE id
+      END AS id, 
+student FROM seat
+ORDER BY id;
+```
+
+1294. Weather Type in Each Country
+- Write an SQL query to find the type of weather in each country for November 2019.
+The type of weather is:
+Cold if the average weather_state is less than or equal 15,
+Hot if the average weather_state is greater than or equal to 25, and
+Warm otherwise. 
+```
+SELECT country_name
+, CASE WHEN AVG(weather_state) <=15 THEN 'Cold'
+    WHEN AVG(weather_state)>=25 THEN 'Hot'
+    ELSE 'Warm' END AS weather_type 
+FROM weather w 
+LEFT JOIN countries c ON w.country_id = c.country_id 
+WHERE month(day) = '11'
+GROUP BY country_name 
+```
+
+580. Count Student Number in Departments
+- Write an SQL query to report the respective department name and number of students majoring in each department for all departments in the Department table (even ones with no current students). Return the result table ordered by student_number in descending order. In case of a tie, order them by dept_name alphabetically.
+```
+# aggregation
+SELECT dept_name
+, IFNULL(COUNT(student_id ),0) AS student_number
+# OR: , SUM(CASE WHEN s.dept_id THEN 1 ELSE 0 END) AS student_number
+FROM student s
+RIGHT JOIN department d ON d.dept_id=s.dept_id
+GROUP BY s.dept_id
+ORDER BY student_number DESC, dept_name
 ```
 1264. Page Recommendations
 - Write an SQL query to recommend pages to the user with user_id = 1 using the pages that your friends liked. It should not recommend pages you already liked. Return result table in any order without duplicates.
@@ -435,9 +526,16 @@ ORDER BY employee_id;
 ```
 
 
-
+1280. Students and Examinations
+- Write an SQL query to find the number of times each student attended each exam. Return the result table ordered by student_id and subject_name.
 ```sql
-
+SELECT a.student_id, a.student_name, b.subject_name AS subject_name
+, COUNT(a.student_id=c.student_id AND b.subject_name=c.subject_name) AS attended_exams
+FROM students a
+JOIN subjects b
+LEFT JOIN examinations c ON a.student_id=c.student_id AND b.subject_name=c.subject_name
+GROUP BY 1,3
+ORDER BY 1,3
 ```
 
 1158. Market Analysis
