@@ -36,7 +36,37 @@ FROM
 WHERE (free=1 AND free_lag=1)
 OR (free=1 AND free_lead=1)
 ```
+
+180. Consecutive Numbers
+```sql
+SELECT DISTINCT num AS ConsecutiveNums
+FROM(
+SELECT id, num
+, LEAD(num,1) OVER() AS lead1
+, LAG(num,1) OVER() AS lag1
+FROM logs) t
+WHERE num = lead1 AND num = lag1
+```
+
 ## aggregation
+1321. Restaurant Growth
+- Write an SQL query to compute the moving average of how much the customer paid in a seven days window (i.e., current day + 6 days before). average_amount should be rounded to two decimal places.
+Return result table ordered by visited_on in ascending order.
+```sql
+SELECT * FROM
+(SELECT visited_on
+, SUM(amount) OVER(ROWS 6 PRECEDING) AS amount
+, ROUND(AVG(amount) OVER(ROWS 6 PRECEDING),2) AS average_amount
+# also can use'ROWS BETWEEN 6 PRECEDING AND CURRENT ROW'
+FROM
+(SELECT visited_on
+, SUM(amount) AS amount
+FROM customer
+GROUP BY visited_on)t)s
+WHERE timestampdiff(DAY,(select min(visited_on) from customer),visited_on)>= 6
+# why I can't use datediff
+# order: where before group by, so need to buil a tmp table before uisng where to limit time zone
+```
 Different between groupby and partition by
 ```sql
 # groupby
@@ -108,10 +138,19 @@ ORDER BY student_id
 ```sql
 
 ```
-
--
+## order
+1549. The Most Recent Orders for Each Product
 ```sql
-
+SELECT product_name, t.product_id, order_id, order_date
+FROM
+(SELECT o.product_id AS product_id
+, order_id
+, order_date 
+, RANK() OVER(PARTITION BY product_id ORDER BY order_date DESC) AS rnk
+FROM orders o) t
+LEFT JOIN Products p ON p.product_id=t.product_id
+WHERE rnk = 1
+ORDER BY product_name, product_id, order_id
 ```
 184. Department Highest Salary
 - Write an SQL query to find employees who have the highest salary in each of the departments.
@@ -184,7 +223,27 @@ GROUP BY u.id # donot use name, since id is primary key
 ORDER BY travelled_distance DESC, u.name ASC
 # ATTENTION TO THE NULL
 ```
-
+1341. Movie Rating
+- Find the name of the user who has rated the greatest number of movies. In case of a tie, return the lexicographically smaller user name. Find the movie name with the highest average rating in February 2020. In case of a tie, return the lexicographically smaller movie name.
+```sql
+#using limit
+SELECT name AS results FROM(
+  SELECT name
+  , COUNT(movie_id) AS num_movie
+  FROM movierating m
+  LEFT JOIN users ON m.user_id=users.user_id
+  GROUP BY m.user_id
+  ORDER BY num_movie DESC, name ASC LIMIT 1)  t1
+UNION
+SELECT movie_name AS results FROM(
+  SELECT movies.title AS movie_name
+  , AVG(rating) AS avg_rating
+  FROM movierating m
+  LEFT JOIN movies ON m.movie_id=movies.movie_id
+  WHERE month(created_at) = "2"
+  GROUP BY movie_name
+  ORDER BY avg_rating DESC, movie_name ASC LIMIT 1) t2
+```
 # Case
 
 -
@@ -484,10 +543,26 @@ AND w2.temperature > w1.temperature;
 ```
 
 # Concat
-- 
 
+1045. Customers Who Bought All Products
+- Write an SQL query to report the customer ids from the Customer table that bought all the products in the Product table.
 ```sql
+WITH c as (SELECT customer_id, 
+GROUP_CONCAT(DISTINCT product_key 
+                     ORDER BY product_key ASC
+                     separator ',') AS total_product_key
+FROM customer
+GROUP BY customer_id),
+p as (
+SELECT 
+GROUP_CONCAT(DISTINCT product_key 
+				ORDER BY product_key ASC
+                 separator ',') AS uid_product_key
+FROM product)
 
+SELECT customer_id 
+FROM c, p
+WHERE c.total_product_key = p.uid_product_key
 ```
 1484. Group Sold Products By The Date
 - Write an SQL query to find for each date the number of different products sold and their names.
@@ -567,15 +642,52 @@ ORDER BY employee_id;
 ```sql
 
 ```
-
--
+**1988. Find Cutoff Score for Each School**
 ```sql
+# my way
+with tmp AS(
+SELECT score, student_count AS ct1
+, LEAD(student_count,1) OVER() AS ct2
+FROM (
+  SELECT * FROM exam ORDER BY score DESC
+)t)
 
+SELECT school_id,
+IFNULL(score,-1) AS score
+FROM schools
+left join tmp
+ON capacity >= ct1 AND (capacity <ct2 OR ct2 IS NULL) 
+ORDER BY score DESC
+# why can't use case when
+
+# easy way
+select school_id, ifnull(min(score),-1) as score
+from Schools left join Exam
+on capacity >= student_count
+group by school_id
 ```
-
--
+1459. Rectangles Area
+- Write an SQL query to report all possible axis-aligned rectangles with a non-zero area that can be formed by any two points from the Points table. Each row in the result should contain three columns (p1, p2, area) where:
 ```sql
+# MINE
+SELECT p1,p2
+, abs(p1x-p2x)*abs(p1y-p2y) AS area
+FROM
+(SELECT t1.id AS p1, t2.id AS p2
+, t1.x_value AS p1x
+, t1.y_value AS p1y
+, t2.x_value AS p2x
+, t2.y_value AS p2y
+FROM points t1
+JOIN points t2 ON t1.id < t2.id) t
+WHERE abs(p1x-p2x)*abs(p1y-p2y) <> 0
+ORDER BY area DESC, p1 ASC, p2 ASC 
 
+# SIMPLER
+select * from(
+select t1.id as P1, t2.id as P2, abs((t1.x_value - t2.x_value) * (t1.y_value - t2.y_value)) as AREA
+from points t1 join points t2 on t1.id < t2.id) t where AREA <> 0
+order by AREA desc, P1 asc, P2 asc 
 ```
 181. Employees Earning More Than Their Managers
 ```sql
@@ -713,7 +825,7 @@ ORDER BY employee_id;
 ```
 
 -
-```sqlfds
+```sql
 
 ```
 
@@ -730,9 +842,29 @@ WHERE p1.email = p2.email AND p1.id > p2.id
 
 
 # Basic
-- 
+1867. Orders With Maximum Quantity Above Average
+- You are running an e-commerce site that is looking for imbalanced orders. An imbalanced order is one whose maximum quantity is strictly greater than - the average quantity of every order (including itself).
+- The average quantity of an order is calculated as (total quantity of all products in the order) / (number of different products in the order). The maximum quantity of an order is the highest quantity of any single product in the order.
+- Write an SQL query to find the order_id of all imbalanced orders.
 ```sql
-
+# subquery
+WITH tmp AS (
+    SELECT order_id,
+    AVG(quantity) as avg_qty,
+    MAX(quantity) as max_qty
+    FROM ordersdetails
+    GROUP BY order_id
+)
+SELECT order_id FROM tmp WHERE max_qty>(SELECT MAX(avg_qty) FROM tmp);
+# window function
+with cte as (
+    select order_id,
+    max(avg(quantity)) over() as max_avg_qty,
+    max(quantity) as max_qty
+    from ordersdetails
+    group by order_id
+)
+select order_id from cte where max_qty>max_avg_qty
 ```
 
 1398. Customers Who Bought Products A and B but Not C
