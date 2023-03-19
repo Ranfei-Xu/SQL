@@ -509,7 +509,7 @@ END
     
 - moving average
     
-    `datediff(date1,date2)` (date1 before date2)
+    `datediff(date1,date2)` (date2 before date1)
     
     `date_add(current_date,interval-2day)` before_yesterday
     
