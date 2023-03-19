@@ -5,6 +5,46 @@ Link: https://leetcode.com/study-plan/sql/?
 
 # Window Function 
 ## Lead and Lag
+1709. Biggest Window Between Visits
+- Assume today's date is '2021-1-1'.
+- Write an SQL query that will, for each user_id, find out the largest window of days between each visit and the one right after it (or today if you are considering the last visit).
+- Return the result table ordered by user_id.
+```sql
+SELECT user_id
+, MAX(wds) AS biggest_window
+FROM(
+  SELECT user_id, visit_date
+  , IFNULL(DATEDIFF(lag1,visit_date),DATEDIFF('2021-1-1',visit_date)) AS wds
+  FROM(
+    SELECT user_id, visit_date
+    , lag(visit_date,1) OVER(PARTITION BY user_id ORDER BY visit_date DESC) AS lag1
+SELECT user_id, MAX(diff) AS biggest_window
+FROM
+(
+SELECT user_id,
+DATEDIFF(LEAD(visit_date, 1, '2021-01-01') OVER (PARTITION BY user_id ORDER BY visit_date), visit_date) AS diff
+	FROM userVisits
+) a
+GROUP BY user_id
+ORDER BY user_id
+    FROM uservisits
+    ORDER BY user_id, visit_date DESC
+  )t
+) t2
+GROUP BY user_id
+ORDER BY user_id
+# simpler
+
+SELECT user_id, MAX(diff) AS biggest_window
+FROM
+(
+SELECT user_id,
+DATEDIFF(LEAD(visit_date, 1, '2021-01-01') OVER (PARTITION BY user_id ORDER BY visit_date), visit_date) AS diff
+	FROM userVisits
+) a
+GROUP BY user_id
+ORDER BY user_id
+```
 1747. Leetflex Banned Accounts
 Write an SQL query to find the account_id of the accounts that should be banned from Leetflex. An account should be banned if it was logged in at some moment from two different IP addresses.
 ```sql
@@ -47,8 +87,50 @@ SELECT id, num
 FROM logs) t
 WHERE num = lead1 AND num = lag1
 ```
+1285. Find the Start and End Number of Continuous Ranges
+- Write an SQL query to find the start and end number of continuous ranges in the table Logs.
+```sql
+# special groupby
+SELECT 
+	min(log_id) AS start_id,
+	max(log_id) AS end_id
+FROM(
+    SELECT
+		row_number() over (ORDER BY log_id ASC) AS rn, 
+		log_id
+    FROM Logs
+    ) t
+GROUP BY log_id-rn # groupby the difference
+```
 
 ## aggregation
+```sql
+
+```
+```sql
+
+```
+```sql
+
+```
+```sql
+
+```
+```sql
+
+```
+```sql
+
+```
+1308. Running Total for Different Genders
+```sql
+SELECT gender
+, `day`
+, SUM(score_points) OVER(PARTITION BY gender ORDER BY `day` ROWS unbounded preceding) AS total
+FROM scores
+# GROUP BY 1,2 # why it is necessary to use partitionby instead of groupby here
+ORDER BY 1,2
+```
 1321. Restaurant Growth
 - Write an SQL query to compute the moving average of how much the customer paid in a seven days window (i.e., current day + 6 days before). average_amount should be rounded to two decimal places.
 Return result table ordered by visited_on in ascending order.
@@ -129,16 +211,65 @@ GROUP BY student_id # necessary
 ORDER BY student_id
 ```
 
--
-```sql
 
-```
 
--
-```sql
 
-```
 ## order
+1951. All the Pairs With the Maximum Number of Common Followers
+- Write an SQL query to find all the pairs of users with the maximum number of common followers. In other words, if the maximum number of common followers between any two users is maxCommon, then you have to return all pairs of users that have maxCommon common followers. The result table should contain the pairs user1_id and user2_id where user1_id < user2_id.
+```sql
+SELECT user1_id,user2_id FROM(
+  SELECT a1.user_id AS user1_id, a2.user_id AS user2_id
+  , count(1) AS com_followers
+  , rank() over(ORDER BY count(1) DESC) as rnk
+  FROM relations a1, relations a2
+  WHERE a1.user_id<a2.user_id AND a1.follower_id=a2.follower_id
+  GROUP BY 1,2
+  )t
+WHERE rnk=1
+```
+
+178. Rank Scores
+- The scores should be ranked from the highest to the lowest.
+- If there is a tie between two scores, both should have the same ranking.
+- After a tie, the next ranking number should be the next consecutive integer value. In other words, there should be no holes between ranks.
+```sql
+SELECT score
+, dense_rank() over(ORDER BY score DESC) AS `rank`
+FROM scores
+ORDER BY `rank`
+```
+1596. The Most Frequently Ordered Products for Each Customer
+- Write an SQL query to find the most frequently ordered product(s) for each customer. The result table should have the product_id and product_name for each customer_id who ordered at least one order.
+```sql
+SELECT customer_id,product_id, product_name
+FROM(
+  SELECT customer_id,product_id, product_name
+  , rank()OVER(PARTITION BY customer_id ORDER BY cnt DESC) AS rnk
+  FROM(
+    SELECT o.customer_id, o.product_id, p.product_name
+    , count(o.order_id) AS cnt
+    FROM orders o
+    LEFT JOIN products p ON o.product_id=p.product_id
+    GROUP BY customer_id,product_id
+    )t
+  )t2
+WHERE rnk = 1
+ORDER BY 1,2
+```
+1077. Project Employees III
+- Write an SQL query that reports the most experienced employees in each project. In case of a tie, report all employees with the maximum number of experience years.
+```sql
+SELECT project_id, employee_id
+FROM(
+  SELECT p.project_id, p.employee_id
+  , e.name, e.experience_years
+  , RANK() OVER(PARTITION BY p.project_id ORDER BY experience_years DESC) as rnk
+  FROM project p
+  LEFT JOIN employee e ON p.employee_id=e.employee_id
+)t
+WHERE rnk = 1
+```
 1549. The Most Recent Orders for Each Product
 ```sql
 SELECT product_name, t.product_id, order_id, order_date
@@ -204,13 +335,28 @@ WHERE num_count = 1
 176. Second Highest Salary
 - Write an SQL query to report the second highest salary from the Employee table. If there is no second highest salary, the query should report null.
 ```sql
-# using Aggregation (LIMIT, OFFSET)
+# using (LIMIT, OFFSET)
 SELECT(SELECT DISTINCT
     Salary 
 FROM
     Employee
 ORDER BY Salary DESC
-LIMIT 1 OFFSET 1)AS SecondHighestSalary;
+LIMIT 1 OFFSET 1) AS SecondHighestSalary;
+```
+177. Nth Highest Salary
+- Write an SQL query to report the nth highest salary from the Employee table. If there is no nth highest salary, the query should report null.
+```sql
+# using (LIMIT, OFFSET)
+CREATE FUNCTION getNthHighestSalary(N INT) RETURNS INT
+BEGIN
+DECLARE M INT;
+SET M = N-1;
+  RETURN (
+      SELECT DISTINCT salary FROM employee
+      ORDER BY salary DESC
+      LIMIT 1 OFFSET M      
+  );
+END
 ```
 
 1407. Top Travellers
@@ -270,9 +416,35 @@ SELECT movie_name AS results FROM(
 ```sql
 
 ```
-
+262. Trips and Users
 -
 ```sql
+# not work very well on the day only have cancell trip
+- The cancellation rate is computed by dividing the number of canceled (by client or driver) requests with unbanned users by the total number of requests with unbanned users on that day.
+Write a SQL query to find the cancellation rate of requests with unbanned users (both client and driver must not be banned) each day between "2013-10-01" and "2013-10-03". Round Cancellation Rate to two decimal points.
+Return the result table in any order.
+```sql
+with tmp AS(
+    SELECT * FROM trips
+    WHERE client_id NOT IN (select users_id FROM users WHERE banned = 'Yes')
+    AND driver_id NOT IN (select users_id FROM users WHERE banned = 'Yes'))
+
+SELECT request_at AS `Day`
+, IF(ROUND(incomplete/total,2)=1,0,ROUND(incomplete/total,2)) AS `Cancellation Rate`
+FROM(    
+    SELECT request_at
+    , count(CASE WHEN status <>'completed' THEN id END) AS incomplete
+    , count(id) AS total
+    FROM tmp
+    GROUP BY request_at
+    )t
+# shorten but still not very well on the day only have cancell trip
+ SELECT Request_at AS Day, ROUND(SUM(IF(Status = 'completed', 0, 1))/COUNT(Status),2) as 'Cancellation Rate' 
+FROM Trips 
+WHERE client_id NOT IN (SELECT Users_Id FROM Users WHERE Banned = 'Yes') 
+    AND client_id NOT IN (SELECT Users_Id FROM Users WHERE Banned = 'Yes')
+    AND Request_at BETWEEN '2013-10-01' AND '2013-10-03'
+GROUP BY Trips.Request_at
 
 ```
 
@@ -482,10 +654,23 @@ SET
 ```
 
 ```
-- 
 
+550. Game Play Analysis IV
+- first day retention rate
 ```
+WITH first_log AS(
+    SELECT player_id
+    , MIN(event_date) AS first_dt
+    FROM activity
+    GROUP BY player_id
+)
 
+SELECT 
+ROUND(sum(IF(DATEDIFF(activity.event_date,first_dt)=1,1,0))
+        /count(distinct activity.player_id)
+        ,2) AS fraction
+FROM activity
+LEFT JOIN first_log ON activity.player_id = first_log.player_id
 ```
 1741. Find Total Time Spent by Each Employee
 - Write an SQL query to calculate the total time in minutes spent by each employee on each day at the office. Note that within one day, an employee can enter and leave more than once. The time spent in the office for a single entry is out_time - in_time.
