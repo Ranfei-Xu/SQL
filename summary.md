@@ -1,7 +1,24 @@
 # CASE STUDY
 
 - retention rate
-    
+
+    ```sql
+    # LEETCODE: 550. Game Play Analysis IV
+    # first day retention rate
+    WITH first_log AS(
+        SELECT player_id
+        , MIN(event_date) AS first_dt
+        FROM activity
+        GROUP BY player_id
+    )
+
+    SELECT 
+    ROUND(sum(IF(DATEDIFF(activity.event_date,first_dt)=1,1,0))
+            /count(distinct activity.player_id)
+            ,2) AS fraction
+    FROM activity
+    LEFT JOIN first_log ON activity.player_id = first_log.player_id
+    ```
     ```sql
     # 3 step: find the first day, find the t+n day, calculate the rate
     # activity[player_id,device_id,event_date,games_played]
