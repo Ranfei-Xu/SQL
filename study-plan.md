@@ -211,10 +211,110 @@ GROUP BY student_id # necessary
 ORDER BY student_id
 ```
 
-
-
-
 ## order
+```sql
+
+```
+```sql
+
+```
+```sql
+
+```
+1972. First and Last Call On the Same Day
+```sql
+WITH tmp AS (
+  SELECT caller_id AS uid1, call_time, recipient_id AS uid2 FROM calls 
+  UNION 
+  SELECT recipient_id AS uid1, call_time, caller_id AS uid2 FROM calls
+)
+, tmp1 AS(
+  SELECT uid1,uid2,date(call_time) AS date
+ , dense_rank() over(PARTITION BY uid1, date(call_time) ORDER BY call_time) AS drnk_asc
+ , dense_rank() over(PARTITION BY uid1, date(call_time) ORDER BY call_time DESC) AS drnk_desc
+  FROM tmp
+)
+
+SELECT DISTINCT uid1 AS user_id 
+FROM tmp1
+WHERE drnk_asc = 1 OR drnk_desc = 1
+GROUP BY uid1, `date`
+HAVING COUNT(DISTINCT uid2) = 1 # improtant!
+```
+
+1412. Find the Quiet Students in All Exams
+- A quiet student is the one who took at least one exam and did not score the high or the low score.
+- Write an SQL query to report the students (student_id, student_name) being quiet in all exams. Do not return the student who has never taken any exam.
+- Return the result table ordered by student_id.
+```sql
+SELECT student_id, student_name
+FROM student
+WHERE student_id NOT IN (
+  SELECT DISTINCT student_id FROM(
+    SELECT exam_id, student_id
+    , rank()over(PARTITION BY exam_id ORDER BY score) AS rnk_asc
+    , rank()over(PARTITION BY exam_id ORDER BY score DESC) AS rnk_desc
+    FROM exam
+    )t
+  WHERE rnk_asc = 1 OR rnk_desc = 1
+) 
+AND student_id IN (SELECT DISTINCT student_id FROM Exam)
+# SIMPLER
+WITH cte AS(
+    SELECT exam_id, exam.student_id, student_name, score, RANK() OVER(PARTITION BY exam_id ORDER BY score) rk1, RANK() OVER(PARTITION BY exam_id ORDER BY score DESC) rk2 
+    FROM exam LEFT JOIN student
+    ON exam.student_id = student.student_id
+)
+
+SELECT DISTINCT student_id, student_name
+FROM cte
+WHERE student_id NOT IN (SELECT student_id FROM cte WHERE rk1 = 1 or rk2 = 1)
+ORDER BY student_id
+```
+1369. Get the Second Most Recent Activity
+- Write an SQL query to show the second most recent activity of each user.
+If the user only has one activity, return that one. A user cannot perform more than one activity at the same time.
+```sql
+SELECT username, activity, startDate, endDate
+FROM(
+    SELECT a1.username,activity,startDate,endDate,totalactivity 
+    , rank()over(PARTITION BY a1.username ORDER BY a1.startdate DESC) AS rnk
+    FROM useractivity a1
+    LEFT JOIN 
+    (SELECT username, count(*) AS totalactivity FROM useractivity GROUP BY username) a2 ON a1.username=a2.username
+) t
+WHERE rnk = 2 OR totalactivity=1
+```
+1831. Maximum Transaction Each Day
+- Write an SQL query to report the IDs of the transactions with the maximum amount on their respective day. If in one day there are multiple such transactions, return all of them.
+- Return the result table ordered by transaction_id in ascending order.
+```sql
+SELECT transaction_id FROM
+(SELECT transaction_id
+, date(`day`) AS date
+, RANK()OVER(PARTITION BY day(`day`) ORDER BY amount DESC) AS rnk
+FROM transactions) t
+WHERE rnk=1
+ORDER BY transaction_id
+```
+1532. The Most Recent Three Orders
+- Write an SQL query to find the most recent three orders of each user. If a user ordered less than three orders, return all of their orders.
+Return the result table ordered by customer_name in ascending order and in case of a tie by the customer_id in ascending order. If there is still a tie, order them by order_date in descending order.
+```sql
+SELECT name AS customer_name
+, cid AS customer_id
+, order_id
+, order_date
+FROM customers c 
+JOIN (
+    SELECT customer_id AS cid, order_id, order_date
+    , RANK()OVER(PARTITION BY customer_id ORDER BY order_date DESC) AS rnk
+    FROM orders
+)t ON c.customer_id = t.cid
+WHERE rnk <=3
+ORDER BY customer_name, customer_id, order_date DESC
+```
+
 1951. All the Pairs With the Maximum Number of Common Followers
 - Write an SQL query to find all the pairs of users with the maximum number of common followers. In other words, if the maximum number of common followers between any two users is maxCommon, then you have to return all pairs of users that have maxCommon common followers. The result table should contain the pairs user1_id and user2_id where user1_id < user2_id.
 ```sql
@@ -390,7 +490,40 @@ SELECT movie_name AS results FROM(
   GROUP BY movie_name
   ORDER BY avg_rating DESC, movie_name ASC LIMIT 1) t2
 ```
-# Case
+# RECURSIVE
+-
+```sql
+
+```
+1270. All People Report to the Given Manager
+- Write an SQL query to find employee_id of all employees that directly or indirectly report their work to the head of the company.
+The indirect relation between managers will not exceed three managers as the company is small.
+```sql
+WITH RECURSIVE cte AS(
+	SELECT employee_id FROM employees WHERE manager_id=1 AND employee_id!=1
+	UNION ALL
+	SELECT a.employee_id FROM employees a 
+	JOIN cte b ON (b.employee_id=a.manager_id) 
+)
+SELECT employee_id FROM cte
+```
+1613. Find the Missing IDs
+- Write an SQL query to find the missing customer IDs. The missing IDs are ones that are not in the Customers table but are in the range between 1 and the maximum customer_id present in the table.
+Notice that the maximum customer_id will not exceed 100.
+Return the result table ordered by ids in ascending order.
+```sql
+WITH RECURSIVE id_seq AS (
+    SELECT 1 as continued_id
+    UNION 
+    SELECT continued_id + 1
+    FROM id_seq
+    WHERE continued_id < (SELECT MAX(customer_id) FROM Customers) 
+)
+SELECT continued_id AS ids
+FROM id_seq
+WHERE continued_id NOT IN (SELECT customer_id FROM Customers)  
+```
+# CASE
 
 -
 ```sql
@@ -820,12 +953,55 @@ ORDER BY employee_id;
 
 -
 ```sql
+SELECT business_id FROM(
+    SELECT business_id
+    , SUM(IF(occurences-avg>0,1,0)) AS activity
+    FROM(
+        SELECT events.* , avg
+        FROM events
+        LEFT JOIN (
+            SELECT event_type, AVG(occurences) AS avg
+            FROM events
+            GROUP BY event_type
+        )t ON events.event_type=t.event_type
+    )t2
+    GROUP BY business_id)t3
+WHERE activity>1
+# SIMPLER: use where after join before groupby
+select 
+business_id
 
+from events as a
+left join
+    (
+    select event_type, avg(occurences) as av
+    from events
+    group by event_type
+    ) as b
+on a.event_type = b.event_type
+where a.occurences > b.av
+group by business_id
+having count(*)>1;
 ```
-
--
+1949. Strong Friendship
+- A friendship between a pair of friends x and y is strong if x and y have at least three common friends.
+Write an SQL query to find all the strong friendships.
+Note that the result table should not contain duplicates with user1_id < user2_id.
 ```sql
-
+with tmp as (
+    select user1_id as uid, user2_id as fid
+    from Friendship
+    UNION ALL
+    select user2_id as uid, user1_id as fid
+    from Friendship
+    )
+SELECT a1.uid AS user1_id, a2.uid AS user2_id, count(1) AS common_friend
+FROM tmp a1, tmp a2
+WHERE a1.uid < a2.uid AND a1.fid = a2.fid 
+    # ensure they are friends
+    AND  (a1.uid, a2.uid) IN (SELECT uid, fid from tmp)
+GROUP BY 1,2
+HAVING common_friend >=3
 ```
 **1988. Find Cutoff Score for Each School**
 ```sql
