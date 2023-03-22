@@ -104,23 +104,33 @@ GROUP BY log_id-rn # groupby the difference
 ```
 
 ## aggregation
-```sql
 
-```
-```sql
 
-```
+2010. The Number of Seniors and Juniors to Join the Company II
+- A company wants to hire new employees. The budget of the company for the salaries is $70000. The company's criteria for hiring are:
+Keep hiring the senior with the smallest salary until you cannot hire any more seniors.
+Use the remaining budget to hire the junior with the smallest salary.
+Keep hiring the junior with the smallest salary until you cannot hire any more juniors.
+Write an SQL query to find the ids of seniors and juniors hired under the mentioned criteria.
 ```sql
+# sum over()
+WITH tmp AS (
+    SELECT employee_id
+    , experience
+    , SUM(salary) OVER(PARTITION BY experience ORDER BY salary ASC) AS rollup 
+    FROM Candidates
+)
+# select * from tmp
+, senior AS (
+    SELECT * FROM tmp WHERE experience = 'Senior' and rollup<70000
+    )
+, junior AS (
+    SELECT * FROM tmp WHERE experience = 'Junior' and rollup<70000 - IFNULL((SELECT max(rollup) FROM senior), 0)
+    )
 
-```
-```sql
-
-```
-```sql
-
-```
-```sql
-
+SELECT employee_id FROM senior
+UNION
+SELECT employee_id FROM junior
 ```
 1308. Running Total for Different Genders
 ```sql
@@ -212,14 +222,135 @@ ORDER BY student_id
 ```
 
 ## order
-```sql
+**HARD:1454. Active Users**
+- Active users are those who logged in to their accounts for five or more consecutive days.
+- Write an SQL query to find the id and the name of active users.
+- Return the result table ordered by id.
+``sql
+# consecutive, active users
+with tmp0 AS(
+    SELECT id, login_date
+    , dense_rank() OVER(PARTITION BY id ORDER BY login_date) as drnk
+    FROM Logins
+)
+, tmp1 as (
+    SELECT id, login_date, drnk
+    , DATE_ADD(login_date, INTERVAL - drnk DAY) AS Groupings # reperesent the day before start consecutive login 
+    FROM tmp0
+)
+, tmp2 as (
+    SELECT  id
+    , MIN(login_date) as startdt
+    , MAX(login_date) as enddt
+    , drnk
+    , Groupings
+    , datediff(MAX(login_date), MIN(login_date)) as duration
+ FROM tmp1
+ GROUP BY id, Groupings
+ HAVING datediff(MAX(login_date), MIN(login_date)) >= 4
+ ORDER BY id, startdt
+ )
 
+SELECT DISTINCT a.id, a.name
+FROM tmp2
+JOIN accounts a ON a.id = tmp2.id
+ORDER BY a.id
+
+# using join
+SELECT *
+FROM Accounts
+WHERE id IN (
+    SELECT DISTINCT l1.id # *
+    # ,count(distinct(l2.login_date)) # has duplicate login in one day
+    FROM Logins l1 
+    INNER JOIN Logins l2 ON l1.id = l2.id 
+    AND DATEDIFF(l1.login_date, l2.login_date) BETWEEN 1 AND 4
+    # ORDER BY l1.login_date
+    GROUP BY l1.id, l1.login_date
+    HAVING COUNT(DISTINCT(l2.login_date)) >= 4 # has duplicate login in one day
+    )
+ORDER BY id
 ```
+**HARD: 1225. Report Contiguous Dates**
+- A system is running one task every day. Every task is independent of the previous tasks. The tasks can fail or succeed.
+- Write an SQL query to generate a report of period_state for each continuous interval of days in the period from 2019-01-01 to 2019-12-31. period_state is 'failed' if tasks in this interval failed or 'succeeded' if tasks in this interval succeeded. Interval of days are retrieved as start_date and end_date.
+- Return the result table ordered by start_date.
 ```sql
-
+SELECT stats AS period_state, MIN(day) AS start_date, MAX(day) AS end_date
+FROM (
+    SELECT 
+        day, 
+        RANK() OVER (ORDER BY day) AS overall_ranking, 
+        stats, 
+        rk, 
+        (RANK() OVER (ORDER BY day) - rk) AS inv
+    FROM (
+        SELECT fail_date AS day, 'failed' AS stats, RANK() OVER (ORDER BY fail_date) AS rk
+        FROM Failed
+        WHERE fail_date BETWEEN '2019-01-01' AND '2019-12-31'
+        UNION 
+        SELECT success_date AS day, 'succeeded' AS stats, RANK() OVER (ORDER BY success_date) AS rk
+        FROM Succeeded
+        WHERE success_date BETWEEN '2019-01-01' AND '2019-12-31') t
+    ) c
+GROUP BY inv, stats
+ORDER BY start_date
 ```
+571. Find Median Given Frequency of Numbers
+- The median is the value separating the higher half from the lower half of a data sample.
+- Write an SQL query to report the median of all the numbers in the database after decompressing the Numbers table. Round the median to one decimal point.
 ```sql
+# recursive
+# find median
+WITH RECURSIVE CTE AS (
+    SELECT num, frequency
+    FROM numbers
+    UNION ALL
+    SELECT num, frequency - 1
+    FROM CTE
+    WHERE frequency > 1
+)
+, tmp as (
+SELECT num, 
+       row_number()over(order by num, frequency) rn_asc,
+       row_number()over(order by num desc,frequency desc) rn_desc
+    from cte
+)
 
+SELECT AVG(num) as median
+FROM tmp 
+WHERE rn_asc=rn_desc # for odds
+     or rn_asc=rn_desc-1 # for even the larger one
+     or rn_asc=rn_desc+1 # for even the smaller one
+```
+569. Median Employee Salary
+- Write an SQL query to find the rows that contain the median salary of each company. While calculating the median, when you sort the salaries of the company, break the ties by id.
+```sql
+SELECT id, company, salary
+FROM(
+     SELECT id,company,salary
+     , count(1) over(partition by company) AS cnt
+     , row_number() over(partition by company order by salary,id) AS rnum_asc
+     , row_number() over(partition by company order by salary DESC, id DESC) AS rnum_desc
+     FROM employee
+)t
+WHERE rnum_asc=round(cnt/2,0) OR rnum_desc=round(cnt/2,0)
+```
+185. Department Top Three Salaries
+- A company's executives are interested in seeing who earns the most money in each of the company's departments. A high earner in a department is an employee who has a salary in the top three unique salaries for that department.Write an SQL query to find the employees who are high earners in each of the departments.
+```sql
+SELECT d.name AS Department
+, Employee, Salary
+FROM department d
+RIGHT JOIN (
+  SELECT name AS Employee
+  , departmentId 
+  , salary AS Salary
+  , dense_rank() over(PARTITION BY departmentid ORDER BY salary DESC) AS drnk
+  FROM employee
+) t ON d.id=t.departmentId
+WHERE drnk <=3
+ORDER BY Department, Salary
 ```
 1972. First and Last Call On the Same Day
 ```sql
@@ -491,9 +622,72 @@ SELECT movie_name AS results FROM(
   ORDER BY avg_rating DESC, movie_name ASC LIMIT 1) t2
 ```
 # RECURSIVE
--
+571. Find Median Given Frequency of Numbers
+- The median is the value separating the higher half from the lower half of a data sample.
+- Write an SQL query to report the median of all the numbers in the database after decompressing the Numbers table. Round the median to one decimal point.
 ```sql
+# recursive
+# find median
+WITH RECURSIVE CTE AS (
+    SELECT num, frequency
+    FROM numbers
+    UNION ALL
+    SELECT num, frequency - 1
+    FROM CTE
+    WHERE frequency > 1
+)
+, tmp as (
+SELECT num, 
+       row_number()over(order by num, frequency) rn_asc,
+       row_number()over(order by num desc,frequency desc) rn_desc
+    from cte
+)
 
+SELECT AVG(num) as median
+FROM tmp 
+WHERE rn_asc=rn_desc # for odds
+     or rn_asc=rn_desc-1 # for even the larger one
+     or rn_asc=rn_desc+1 # for even the smaller one
+```
+
+1384. Total Sales Amount by Year
+- Write an SQL query to report the total sales amount of each item for each year, with corresponding product_name, product_id, product_name, and report_year.
+Return the result table ordered by product_id and report_year.
+```sql
+WITH RECURSIVE CTE AS
+    (SELECT MIN(period_start) as date
+     FROM Sales 
+     UNION ALL
+     SELECT DATE_ADD(date, INTERVAL 1 day)
+     FROM CTE
+     WHERE date <= ALL (SELECT MAX(period_end) FROM Sales))
+
+SELECT s.product_id, p.product_name
+, year(e.date) as report_year
+, SUM(s.average_daily_sales) as total_amount
+FROM Sales s
+JOIN Product p ON p.product_id = s.product_id
+JOIN CTE e ON s.period_start<=e.date AND s.period_end>=e.date
+GROUP BY 1,2,3 
+ORDER BY 1,3
+
+```
+
+1767. Find the Subtasks That Did Not Execute
+- Write an SQL query to report the IDs of the missing subtasks for each task_id.
+Return the result table in any order.
+```sql
+WITH RECURSIVE CTE AS (
+    SELECT task_id, subtasks_count
+    FROM Tasks
+    UNION ALL
+    SELECT task_id, subtasks_count - 1
+    FROM CTE
+    WHERE subtasks_count > 1
+)
+# SELECT * FROM CTE
+SELECT task_id, subtasks_count AS subtask_id FROM CTE
+WHERE (task_id,subtasks_count) NOT IN (SELECT * FROM Executed)
 ```
 1270. All People Report to the Given Manager
 - Write an SQL query to find employee_id of all employees that directly or indirectly report their work to the head of the company.
@@ -525,30 +719,6 @@ WHERE continued_id NOT IN (SELECT customer_id FROM Customers)
 ```
 # CASE
 
--
-```sql
-
-```
-
--
-```sql
-
-```
-
--
-```sql
-
-```
-
--
-```sql
-
-```
-
--
-```sql
-
-```
 262. Trips and Users
 -
 ```sql
@@ -782,12 +952,6 @@ SET
 
 
 # DATE AND TIME
-- 
-
-```
-
-```
-
 550. Game Play Analysis IV
 - first day retention rate
 ```
@@ -904,23 +1068,6 @@ FROM Users ORDER BY user_id;
 ```
 
 # IF
-- 
-```sql
-
-```
-
-- 
-```sql
-
-```
-- 
-```sql
-
-```
-- 
-```sql
-
-```
 608. Tree Node
 - Each node in the tree can be one of three types:
 "Leaf": if the node is a leaf node.
@@ -946,11 +1093,55 @@ ORDER BY employee_id;
 
 # Join
 
--
-```sql
+**HARD:1454. Active Users**
+- Active users are those who logged in to their accounts for five or more consecutive days.
+- Write an SQL query to find the id and the name of active users.
+- Return the result table ordered by id.
+``sql
+# consecutive, active users
+with tmp0 AS(
+    SELECT id, login_date
+    , dense_rank() OVER(PARTITION BY id ORDER BY login_date) as drnk
+    FROM Logins
+)
+, tmp1 as (
+    SELECT id, login_date, drnk
+    , DATE_ADD(login_date, INTERVAL - drnk DAY) AS Groupings # reperesent the day before start consecutive login 
+    FROM tmp0
+)
+, tmp2 as (
+    SELECT  id
+    , MIN(login_date) as startdt
+    , MAX(login_date) as enddt
+    , drnk
+    , Groupings
+    , datediff(MAX(login_date), MIN(login_date)) as duration
+ FROM tmp1
+ GROUP BY id, Groupings
+ HAVING datediff(MAX(login_date), MIN(login_date)) >= 4
+ ORDER BY id, startdt
+ )
 
+SELECT DISTINCT a.id, a.name
+FROM tmp2
+JOIN accounts a ON a.id = tmp2.id
+ORDER BY a.id
+
+# using join
+SELECT *
+FROM Accounts
+WHERE id IN (
+    SELECT DISTINCT l1.id # *
+    # ,count(distinct(l2.login_date)) # has duplicate login in one day
+    FROM Logins l1 
+    INNER JOIN Logins l2 ON l1.id = l2.id 
+    AND DATEDIFF(l1.login_date, l2.login_date) BETWEEN 1 AND 4
+    # ORDER BY l1.login_date
+    GROUP BY l1.id, l1.login_date
+    HAVING COUNT(DISTINCT(l2.login_date)) >= 4 # has duplicate login in one day
+    )
+ORDER BY id
 ```
-
 -
 ```sql
 SELECT business_id FROM(
@@ -970,7 +1161,6 @@ WHERE activity>1
 # SIMPLER: use where after join before groupby
 select 
 business_id
-
 from events as a
 left join
     (
@@ -1169,25 +1359,38 @@ SELECT employee_id FROM Salaries WHERE employee_id not in (Select employee_id fr
 ORDER BY employee_id;
 ```
 # Dataframe
-
-- 
+618. Students Report By Geography
+- Write an SQL query to pivot the continent column in the Student table so that each name is sorted alphabetically and displayed underneath its corresponding continent. The output headers should be America, Asia, and Europe, respectively.
+- The test cases are generated so that the student number from America is not less than either Asia or Europe.
 ```sql
-
-```
-
-- 
-```sql
-
-```
-
-- 
-```sql
-
-```
-
--
-```sql
-
+# pivot
+# add row number
+SELECT MAX(America) AS America -- MAX function considers only non-null values
+, MAX(Asia) AS Asia
+, MAX(Europe) AS Europe
+FROM (
+    SELECT 
+        CASE WHEN continent = 'America' THEN @am := @am + 1 -- assign correct row_num for each column
+             WHEN continent = 'Asia'    THEN @asia := @asia + 1
+             WHEN continent = 'Europe'  THEN @eu := @eu + 1 END row_id,
+        CASE WHEN continent = 'America' THEN name END America, -- put name to the correct alias
+        CASE WHEN continent = 'Asia'    THEN name END Asia,
+        CASE WHEN continent = 'Europe'  THEN name END Europe
+    FROM student, (SELECT @am := 0, @asia := 0, @eu := 0) AS tmp
+    ORDER BY name
+) t
+GROUP BY row_id -- necessary
+# simpler
+SELECT 
+  MAX(CASE WHEN continent = 'America' THEN name END )AS America
+, MAX(CASE WHEN continent = 'Asia' THEN name END )AS Asia
+, MAX(CASE WHEN continent = 'Europe' THEN name END )AS Europe  
+FROM (
+    SELECT *
+    , ROW_NUMBER()OVER(PARTITION BY continent ORDER BY name) AS row_id 
+    FROM student
+    ) AS t
+GROUP BY row_id
 ```
 
 
