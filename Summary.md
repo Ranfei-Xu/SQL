@@ -849,3 +849,7 @@ SELECT date_format('2013-03-09','%Y %m %d') AS new_date; -> 2013 03 09
         prefer `exists` rather than `in`
         
 - SHORTCUT
+    - notes: ctrl+/
+    - execute: ctrl+enter
+    - edit multiple lines: ctrl+alt+↑
+    - pick up the line: ctrl+L
