@@ -192,6 +192,16 @@ SELECT stock_name,
 		   ELSE -price END) AS capital_gain_loss
 FROM Stocks
 GROUP BY stock_name
+# another way
+SELECT Stock_name, 
+    COALESCE(SUM(sell_amount), 0) - COALESCE(SUM(buy_amount), 0) AS CAPITAL_GAIN_LOSS
+FROM 
+    (SELECT Stock_name, 
+        CASE WHEN Operation = 'sell' THEN price ELSE 0 END AS sell_amount,
+        CASE WHEN Operation = 'buy' THEN price ELSE 0 END AS buy_amount
+    FROM stocks) subquery
+GROUP BY Stock_name;
+
 # Window Function (SUM OVER):
 SELECT DISTINCT stock_name, 
        SUM(CASE WHEN operation = 'Sell' THEN price ELSE -price END)
